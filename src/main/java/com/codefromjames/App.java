@@ -2,6 +2,8 @@ package com.codefromjames;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.apache.commons.math3.stat.descriptive.StatisticalSummary;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -51,7 +53,7 @@ public class App {
         final CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
                 .setDelimiter(',')
                 .setQuote('"')
-                .setHeader("Threads", "Sum", "Spread", "Min", "Max", "Median")
+                .setHeader("Threads", "Sum", "Spread", "Min", "Max", "Median", "StdDev")
                 .build();
         try (Writer writer = new FileWriter("data.csv");
                 CSVPrinter printer = new CSVPrinter(writer, format)) {
@@ -62,7 +64,8 @@ public class App {
                         results.getSpread(),
                         results.getMin(),
                         results.getMax(),
-                        results.getMedian());
+                        results.getMedian(),
+                        results.getStdDev());
             }
         }
     }
@@ -107,16 +110,23 @@ public class App {
 
     static class WorkerResults {
         private final List<Long> totals;
+        private final DescriptiveStatistics statistics;
 
         WorkerResults(Collection<Worker> workers) {
+            statistics = new DescriptiveStatistics();
             totals = workers.stream()
                     .map(Worker::getTotal)
+                    .peek(statistics::addValue)
                     .sorted()
                     .collect(Collectors.toList());
         }
 
         public List<Long> getTotals() {
             return totals;
+        }
+
+        public StatisticalSummary getStats() {
+            return statistics;
         }
 
         public long getMin() {
@@ -139,6 +149,10 @@ public class App {
             return totals.stream().reduce(0L, Long::sum);
         }
 
+        public long getStdDev() {
+            return (long) statistics.getStandardDeviation();
+        }
+
         @Override
         public String toString() {
             return "WorkerResults{" +
@@ -147,7 +161,8 @@ public class App {
                     "median=" + getMedian() + "," +
                     "max=" + getMax() + "," +
                     "spread=" + getSpread() + "," +
-                    "sum=" + getSum() +
+                    "sum=" + getSum() + "," +
+                    "stddev=" + getStdDev() +
                     '}';
         }
     }
