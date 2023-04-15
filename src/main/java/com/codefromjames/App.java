@@ -21,6 +21,13 @@ public class App {
     final static int MAX_CPU_TARGET = CPU_COUNT * 4;
     private static final Semaphore SEMAPHORE = new Semaphore(MAX_CPU_TARGET);
 
+    // TODO: I want to change the implementation. Here are some thoughts:
+    // - The target should be a fixed count. It should be something high enough that it takes a significant amount of time, but not so high that it is hard to achieve.
+    // - Maybe this target count can be determined during warm-up?
+    // - After the count is set, it should walk up the number of concurrent threads to measure the impacts on the operations.
+    // - After that, we can look at tuning them somehow to reduce concurrency, or add in some kind of a sleep or I/O step to make it more "realistic".
+    // - The stats generation I think is still good. I like to chart the CSVs in Excel/Sheets to visualize the results.
+
     public static void main(String[] args) throws IOException {
         // Warm-up
         {
