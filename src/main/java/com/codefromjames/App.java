@@ -12,10 +12,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -56,7 +53,7 @@ public class App {
                 .setHeader("Threads", "Sum", "Spread", "Min", "Max", "Median", "StdDev")
                 .build();
         try (Writer writer = new FileWriter("data.csv");
-                CSVPrinter printer = new CSVPrinter(writer, format)) {
+             CSVPrinter printer = new CSVPrinter(writer, format)) {
             for (WorkerResults results : resultsList) {
                 printer.printRecord(
                         results.getTotals().size(),
@@ -87,6 +84,7 @@ public class App {
                 while (workers.stream().anyMatch(Worker::isStopped)) {
                     Thread.sleep(50);
                 }
+
 
                 // Release all the locks at once to release threads close to simultaneously
                 SEMAPHORE.release(MAX_CPU_TARGET);
