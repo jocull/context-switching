@@ -3,6 +3,7 @@ package com.codefromjames;
 import org.apache.commons.lang3.time.StopWatch;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -14,40 +15,54 @@ import java.util.stream.IntStream;
 public class App2 {
     final static int CPU_COUNT = Runtime.getRuntime().availableProcessors();
     final static int MAX_CPU_TARGET = CPU_COUNT * 4;
+    final static Duration TARGET_OPERATION_INTERVAL = Duration.ofMillis(250);
 
     public static void main(String[] args) {
+        final long targetCount = findTargetCountForInterval(TARGET_OPERATION_INTERVAL);
+
         // Warm-up
         {
-            final Duration targetOperationInterval = Duration.ofMillis(250);
-            final long targetNumber = findTargetInterval(targetOperationInterval);
-            final int targetWorkers = MAX_CPU_TARGET; // Math.max(1, CPU_COUNT / 2);
-            final List<Worker> workers = IntStream.range(0, targetWorkers)
-                    .mapToObj(i -> new Worker(targetNumber))
+            System.out.println("Running warm-up...");
+            IntStream.range(0, 3).forEach(i -> targetResultForThreadCount(targetCount, MAX_CPU_TARGET));
+            System.out.println("Completed warm-up");
+            System.out.println("======================================================================");
+        }
+
+        final List<WorkerResult> results = IntStream.range(1, MAX_CPU_TARGET + 1)
+                .mapToObj(threadCount -> targetResultForThreadCount(targetCount, threadCount))
+                .collect(Collectors.toList());
+    }
+
+    private static WorkerResult targetResultForThreadCount(long targetCount, int threadCount) {
+        System.out.println("Running for " + threadCount + " threads...");
+        final List<Worker> workers = IntStream.range(0, threadCount)
+                .mapToObj(i -> new Worker(targetCount))
+                .collect(Collectors.toList());
+        final ExecutorService executor = Executors.newFixedThreadPool(workers.size());
+        final StopWatch sw = StopWatch.createStarted();
+        try {
+            final List<CompletableFuture<Void>> futures = workers.stream()
+                    .map(w -> CompletableFuture.runAsync(w, executor))
                     .collect(Collectors.toList());
-            final ExecutorService executor = Executors.newFixedThreadPool(workers.size());
-            final StopWatch sw = StopWatch.createStarted();
-            try {
-                final List<CompletableFuture<Void>> futures = workers.stream()
-                        .map(w -> CompletableFuture.runAsync(w, executor))
-                        .collect(Collectors.toList());
 
-                CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
-                sw.stop();
-                workers.forEach(w -> System.out.println(w.getDuration()));
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+            sw.stop();
+            workers.forEach(w -> System.out.println(w.getDuration()));
 
-                final Duration resultingInterval = Duration.ofMillis(sw.getTime());
-                System.out.println("Total runtime: " + resultingInterval);
-                System.out.println("Total impact ratio: " + (resultingInterval.toMillis() / targetOperationInterval.toMillis()));
-            } finally {
-                executor.shutdownNow();
-            }
+            final Duration resultingInterval = Duration.ofMillis(sw.getTime());
+            System.out.println("Total runtime: " + resultingInterval);
+            System.out.println("Total impact ratio: " + ((double) resultingInterval.toMillis() / (double) TARGET_OPERATION_INTERVAL.toMillis()));
+
+            return new WorkerResult(targetCount, threadCount, resultingInterval, workers);
+        } finally {
+            executor.shutdownNow();
         }
     }
 
     /**
      * Performs simple worker iterations searching for a target execution time on a single thread.
      */
-    private static long findTargetInterval(Duration targetOperationTime) {
+    private static long findTargetCountForInterval(Duration targetOperationTime) {
         Objects.requireNonNull(targetOperationTime);
         if (targetOperationTime.toMillis() <= 0) {
             throw new IllegalArgumentException("Target operation time must be at least 1 millisecond");
@@ -108,6 +123,39 @@ public class App2 {
 
         public Duration getDuration() {
             return duration;
+        }
+    }
+
+    static class WorkerResult {
+        private final long targetCount;
+        private final int targetThreads;
+        private final Duration totalDuration;
+        private final List<Worker> workers;
+
+        WorkerResult(long targetCount,
+                     int targetThreads,
+                     Duration totalDuration,
+                     Collection<Worker> workers) {
+            this.targetCount = targetCount;
+            this.targetThreads = targetThreads;
+            this.totalDuration = totalDuration;
+            this.workers = List.copyOf(workers);
+        }
+
+        public long getTargetCount() {
+            return targetCount;
+        }
+
+        public int getTargetThreads() {
+            return targetThreads;
+        }
+
+        public Duration getTotalDuration() {
+            return totalDuration;
+        }
+
+        public List<Worker> getWorkers() {
+            return workers;
         }
     }
 }
