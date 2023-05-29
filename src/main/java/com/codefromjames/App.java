@@ -19,38 +19,43 @@ public class App {
 
     public static void main(String[] args) {
         final long targetCount = findTargetCountForInterval(TARGET_OPERATION_INTERVAL);
-        final WorkerExecutor executorImpl = new WorkerLimitedPlatformThreadExecutor();
+        final List<WorkerExecutor> executors = List.of(
+                new WorkerConcurrentPlatformThreadExecutor(),
+                new WorkerLimitedPlatformThreadExecutor());
 
-        // Warm-up
-        {
-            System.out.println("Running warm-up...");
-            IntStream.range(0, 3).forEach(i -> executorImpl.targetResultForThreadCount(targetCount, MAX_CPU_TARGET));
-            System.out.println("Completed warm-up");
-            System.out.println("======================================================================");
-        }
-
-        final List<WorkerResult> results = IntStream.range(1, MAX_CPU_TARGET + 1)
-                .mapToObj(threadCount -> executorImpl.targetResultForThreadCount(targetCount, threadCount))
-                .collect(Collectors.toList());
-
-        System.out.println("Outputting results: data.csv");
-        final CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
-                .setDelimiter(',')
-                .setQuote('"')
-                .setHeader("Threads", "DurationMs", "ImpactRatio", "StdDev")
-                .build();
-        try (Writer writer = new FileWriter("data.csv");
-             CSVPrinter printer = new CSVPrinter(writer, format)) {
-            for (WorkerResult result : results) {
-                printer.printRecord(
-                        result.getTargetThreads(),
-                        result.getTotalDuration().toMillis(),
-                        result.getImpactRatio(),
-                        result.getDescriptiveStatistics().getStandardDeviation());
+        executors.forEach(executor -> {
+            // Warm-up
+            {
+                System.out.println("Running " + executor.getClass().getSimpleName() + " warm-up...");
+                IntStream.range(0, 3).forEach(i -> executor.targetResultForThreadCount(targetCount, MAX_CPU_TARGET));
+                System.out.println("Completed warm-up");
+                System.out.println("======================================================================");
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+
+            final List<WorkerResult> results = IntStream.range(1, MAX_CPU_TARGET + 1)
+                    .mapToObj(threadCount -> executor.targetResultForThreadCount(targetCount, threadCount))
+                    .collect(Collectors.toList());
+
+            final String filename = "data-" + executor.getClass().getSimpleName() + ".csv";
+            System.out.println("Outputting results: " + filename);
+            final CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                    .setDelimiter(',')
+                    .setQuote('"')
+                    .setHeader("Threads", "DurationMs", "ImpactRatio", "StdDev")
+                    .build();
+            try (Writer writer = new FileWriter(filename);
+                 CSVPrinter printer = new CSVPrinter(writer, format)) {
+                for (WorkerResult result : results) {
+                    printer.printRecord(
+                            result.getTargetThreads(),
+                            result.getTotalDuration().toMillis(),
+                            result.getImpactRatio(),
+                            result.getDescriptiveStatistics().getStandardDeviation());
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     /**
