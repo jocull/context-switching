@@ -50,10 +50,11 @@ public class App2 {
             workers.forEach(w -> System.out.println(w.getDuration()));
 
             final Duration resultingInterval = Duration.ofMillis(sw.getTime());
-            System.out.println("Total runtime: " + resultingInterval);
-            System.out.println("Total impact ratio: " + ((double) resultingInterval.toMillis() / (double) TARGET_OPERATION_INTERVAL.toMillis()));
+            final WorkerResult result = new WorkerResult(targetCount, threadCount, TARGET_OPERATION_INTERVAL, resultingInterval, workers);
 
-            return new WorkerResult(targetCount, threadCount, resultingInterval, workers);
+            System.out.println("Total runtime: " + result.getTotalDuration());
+            System.out.println("Total impact ratio: " + result.getImpactRatio());
+            return result;
         } finally {
             executor.shutdownNow();
         }
@@ -129,15 +130,18 @@ public class App2 {
     static class WorkerResult {
         private final long targetCount;
         private final int targetThreads;
+        private final Duration targetDuration;
         private final Duration totalDuration;
         private final List<Worker> workers;
 
         WorkerResult(long targetCount,
                      int targetThreads,
+                     Duration targetDuration,
                      Duration totalDuration,
                      Collection<Worker> workers) {
             this.targetCount = targetCount;
             this.targetThreads = targetThreads;
+            this.targetDuration = targetDuration;
             this.totalDuration = totalDuration;
             this.workers = List.copyOf(workers);
         }
@@ -156,6 +160,10 @@ public class App2 {
 
         public List<Worker> getWorkers() {
             return workers;
+        }
+
+        public double getImpactRatio() {
+            return (double) totalDuration.toMillis() / (double) targetDuration.toMillis();
         }
     }
 }
