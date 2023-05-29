@@ -1,7 +1,13 @@
 package com.codefromjames;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -31,6 +37,25 @@ public class App2 {
         final List<WorkerResult> results = IntStream.range(1, MAX_CPU_TARGET + 1)
                 .mapToObj(threadCount -> targetResultForThreadCount(targetCount, threadCount))
                 .collect(Collectors.toList());
+
+        System.out.println("Outputting results: data.csv");
+        final CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
+                .setDelimiter(',')
+                .setQuote('"')
+                .setHeader("Threads", "DurationMs", "ImpactRatio", "StdDev")
+                .build();
+        try (Writer writer = new FileWriter("data.csv");
+             CSVPrinter printer = new CSVPrinter(writer, format)) {
+            for (WorkerResult result : results) {
+                printer.printRecord(
+                        result.getTargetThreads(),
+                        result.getTotalDuration().toMillis(),
+                        result.getImpactRatio(),
+                        result.getDescriptiveStatistics().getStandardDeviation());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static WorkerResult targetResultForThreadCount(long targetCount, int threadCount) {
@@ -133,6 +158,7 @@ public class App2 {
         private final Duration targetDuration;
         private final Duration totalDuration;
         private final List<Worker> workers;
+        private final DescriptiveStatistics descriptiveStatistics;
 
         WorkerResult(long targetCount,
                      int targetThreads,
@@ -144,6 +170,9 @@ public class App2 {
             this.targetDuration = targetDuration;
             this.totalDuration = totalDuration;
             this.workers = List.copyOf(workers);
+
+            descriptiveStatistics = new DescriptiveStatistics();
+            workers.forEach(w -> descriptiveStatistics.addValue(w.getDuration().toMillis()));
         }
 
         public long getTargetCount() {
@@ -164,6 +193,10 @@ public class App2 {
 
         public double getImpactRatio() {
             return (double) totalDuration.toMillis() / (double) targetDuration.toMillis();
+        }
+
+        public DescriptiveStatistics getDescriptiveStatistics() {
+            return descriptiveStatistics;
         }
     }
 }
