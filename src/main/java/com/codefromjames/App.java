@@ -19,7 +19,7 @@ public class App {
 
     public static void main(String[] args) {
         final long targetCount = findTargetCountForInterval(TARGET_OPERATION_INTERVAL);
-        final WorkerExecutor executorImpl = new WorkerConcurrentPlatformThreadExecutor();
+        final WorkerExecutor executorImpl = new WorkerLimitedPlatformThreadExecutor();
 
         // Warm-up
         {
@@ -73,6 +73,7 @@ public class App {
         System.out.println("Target seeking from " + interval);
         while (true) {
             final BlockingCountingWorker worker = new BlockingCountingWorker(interval);
+            worker.startClock();
             worker.run();
             final Duration last = worker.getDuration();
 
