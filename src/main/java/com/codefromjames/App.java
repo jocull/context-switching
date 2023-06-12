@@ -20,6 +20,7 @@ public class App {
     public static void main(String[] args) {
         final long targetCount = findTargetCountForInterval(TARGET_OPERATION_INTERVAL);
         final List<WorkerExecutor> executors = List.of(
+                new WorkerConcurrentVirtualThreadExecutor(),
                 new WorkerConcurrentPlatformThreadExecutor(),
                 new WorkerLimitedPlatformThreadExecutor());
 
