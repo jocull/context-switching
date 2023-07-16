@@ -21,7 +21,8 @@ public class App {
         final long targetCount = findTargetCountForInterval(TARGET_OPERATION_INTERVAL);
         final List<WorkerExecutor> executors = List.of(
                 new WorkerConcurrentPlatformThreadExecutor(),
-                new WorkerLimitedPlatformThreadExecutor());
+                new WorkerLimitedPlatformThreadExecutor(),
+                new WorkerSemaphorePlatformThreadExecutor());
 
         executors.forEach(executor -> {
             // Warm-up
